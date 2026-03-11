@@ -10,8 +10,8 @@ from anthropic import AnthropicVertex, AsyncAnthropicVertex
 
 
 DEFAULT_MODEL = "claude-haiku-4-5"
-DEFAULT_PROJECT = "YOUR_GCP_PROJECT"
-DEFAULT_REGION = "YOUR_GCP_REGION"
+DEFAULT_PROJECT = ""  # Set via GOOGLE_CLOUD_PROJECT env var
+DEFAULT_REGION = ""   # Set via GOOGLE_CLOUD_REGION env var
 DEFAULT_CONCURRENCY = 30
 
 SYSTEM_PROMPT = (
