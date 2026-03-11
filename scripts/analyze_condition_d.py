@@ -222,6 +222,7 @@ def main():
     log_paths = [
         "outputs/grpo_condition_D.log",
         "outputs/grpo_condition_D_resumed.log",
+        "outputs/grpo_condition_D_step1000.log",
     ]
     test_data_path = "data/baseline/test_baseline.jsonl"
     adapter_path = "outputs/grpo_condition_D/final_adapter"
