@@ -32,18 +32,7 @@ Expression ──> Claude API ──> Adapter (Qwen3-8B + LoRA) ──> Final An
 
 ## Experiment Design
 
-Four training conditions test what information the adapter needs:
-
-| Condition | Symbol Definitions | CORRECT Token | Purpose |
-|-----------|-------------------|---------------|---------|
-| A | Explicit mappings | No | Can the model learn with full info? |
-| B | None | No | Can it learn without any symbol info? |
-| C | Explicit mappings | Yes | Upper bound — model has everything |
-| **D** | **Vague** ("each symbol is one of +,-,x,/") | **Yes** | **The real test — model must discover mappings via RL** |
-
-### Condition D: The Key Experiment
-
-The adapter prompt tells the model that four symbols each map to one arithmetic operation, but **not which is which**. The few-shot examples give hints:
+The adapter prompt tells the model that four symbols each map to one arithmetic operation, but **not which is which**. A few-shot examples give hints:
 
 ```
 Expression: 3 θ 4 | API answer: 7 → \boxed{CORRECT}     # Claude got it right
@@ -51,7 +40,17 @@ Expression: 10 α 3 | API answer: 5 → \boxed{7}           # Claude got it wron
 Expression: 2 γ 6 | API answer: none → \boxed{12}         # Claude gave no answer, adapter computes
 ```
 
-Through GRPO, the model must figure out the correct symbol-to-operation mapping purely from the reward signal (1.0 if final answer matches ground truth, 0.0 otherwise).
+Through GRPO, the model must figure out the correct symbol-to-operation mapping purely from the reward signal (1.0 if final answer matches ground truth, 0.0 otherwise). The model is never told the mappings directly — it learns to reason about them from the few-shot examples and the binary reward.
+
+### Ablations
+
+We also tested three other prompt configurations to isolate what matters:
+
+- **Explicit symbols, no CORRECT token**: No learning. Reward flat at ~0.5. Qwen3's thinking mode consumed all tokens before producing an answer.
+- **No symbols, no CORRECT token**: Same failure — the model needs some symbol information to even begin.
+- **Explicit symbols + CORRECT token**: Reward 1.0 from step 1. The model simply reads the definitions and solves everything — too easy to be interesting.
+
+The vague-symbols setup is the sweet spot: the model has enough information to reason from, but must actually learn *how* to reason through RL.
 
 ## Results
 
@@ -81,13 +80,7 @@ Custom symbol reward trend across steps 500-1000:
 | Steps 720-800 | 0.62 |
 | Steps 800-820 | 0.70 |
 
-### Other Conditions
-
-- **Condition A** (explicit symbols, no CORRECT token): No learning. Reward flat at ~0.5, `frac_reward_zero_std=1.0` on 81% of batches. Qwen3's thinking mode consumed all tokens before producing an answer.
-- **Condition B** (no symbols, no CORRECT token): Same failure as A.
-- **Condition C** (explicit symbols + CORRECT token): Reward 1.0 from step 1. The model simply reads the definitions and solves everything — too easy to be interesting.
-
-### Example Outputs (Condition D, 1000 steps)
+### Example Outputs (1000 steps)
 
 **Correct predictions:**
 
@@ -130,8 +123,9 @@ src/api_adapter/
 scripts/
   generate_dataset.py    # Generate train/test data (1600/400 samples)
   run_baseline.py        # Run Claude baseline on test set
-  train_grpo.py          # CLI for GRPO training (conditions A-D)
+  train_grpo.py          # CLI for GRPO training
   analyze_condition_d.py # Parse logs, plot rewards, run evaluation
+  test_direct.py         # Side-by-side LoRA vs base model comparison
 
 prototype.py    # End-to-end chain test (Claude API -> adapter)
 tests/          # 24 unit tests for symbol engine
@@ -146,8 +140,15 @@ outputs/        # Training outputs, checkpoints, plots (gitignored)
 pip install -e ".[dev]"
 pytest  # runs 24 symbol engine tests
 
-# H100 node (training)
+# GPU node (training)
 pip install -e ".[gpu,dev]"
+```
+
+### Environment Variables
+
+```bash
+export GOOGLE_CLOUD_PROJECT="your-gcp-project"
+export GOOGLE_CLOUD_REGION="your-gcp-region"
 ```
 
 ### Training
@@ -157,7 +158,7 @@ pip install -e ".[gpu,dev]"
 python scripts/generate_dataset.py
 python scripts/run_baseline.py
 
-# Train Condition D (the interesting one)
+# Train (vague symbols + CORRECT token)
 CUDA_VISIBLE_DEVICES=0 python scripts/train_grpo.py --condition D --max-steps 1000
 
 # Resume from checkpoint
