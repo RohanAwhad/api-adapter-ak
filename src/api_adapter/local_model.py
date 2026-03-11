@@ -15,7 +15,7 @@ def load_model(
     max_seq_length: int = DEFAULT_MAX_SEQ_LENGTH,
     lora_rank: int = DEFAULT_LORA_RANK,
     fast_inference: bool = True,
-    gpu_memory_utilization: float = 0.6,
+    gpu_memory_utilization: float = 0.3,
 ):
     """Load Qwen 3 with LoRA adapter via Unsloth.
 
@@ -61,6 +61,7 @@ def format_adapter_prompt(
     claude_answer: str,
     include_symbols: bool = True,
     allow_correct_token: bool = False,
+    vague_symbols: bool = False,
 ) -> str:
     """Format the input prompt for the adapter model.
 
@@ -70,34 +71,47 @@ def format_adapter_prompt(
         include_symbols: Whether to include custom symbol definitions.
         allow_correct_token: If True, instruct the model it can emit CORRECT
             to accept Claude's answer as-is (Condition C).
+        vague_symbols: If True, use vague symbol descriptions instead of
+            explicit mappings (Condition D).
 
     Returns:
         Formatted prompt string.
     """
-    from api_adapter.symbols import SYMBOL_DEFINITIONS
+    from api_adapter.symbols import SYMBOL_DEFINITIONS, SYMBOL_DEFINITIONS_VAGUE
 
     parts = []
     if include_symbols:
-        parts.append(SYMBOL_DEFINITIONS)
+        parts.append(SYMBOL_DEFINITIONS_VAGUE if vague_symbols else SYMBOL_DEFINITIONS)
         parts.append("")
 
-    parts.append(f"Expression: {expression}")
-    parts.append(f"API model answer: {claude_answer}")
-    parts.append("")
-
+    # Few-shot examples
     if allow_correct_token:
-        parts.append(
-            "Verify the API model's answer. "
-            "If correct, respond with CORRECT. "
-            "If incorrect, respond with the correct number. "
-            "Respond with ONLY CORRECT or a number."
-        )
+        if include_symbols:
+            parts.append("Examples:")
+            parts.append("Expression: 3 θ 4 | API answer: 7 → \\boxed{CORRECT}")
+            parts.append("Expression: 10 α 3 | API answer: 5 → \\boxed{7}")
+            parts.append("Expression: 2 γ 6 | API answer: none → \\boxed{12}")
+            parts.append("")
+        else:
+            parts.append("Examples:")
+            parts.append("Expression: 3 + 4 | API answer: 7 → \\boxed{CORRECT}")
+            parts.append("Expression: 10 - 3 | API answer: 5 → \\boxed{7}")
+            parts.append("")
     else:
-        parts.append(
-            "Verify the API model's answer. If correct, repeat it. "
-            "If incorrect, provide the correct answer. "
-            "Respond with ONLY the number."
-        )
+        if include_symbols:
+            parts.append("Examples:")
+            parts.append("Expression: 3 θ 4 | API answer: 7 → \\boxed{7}")
+            parts.append("Expression: 10 α 3 | API answer: 5 → \\boxed{7}")
+            parts.append("Expression: 2 γ 6 | API answer: none → \\boxed{12}")
+            parts.append("")
+        else:
+            parts.append("Examples:")
+            parts.append("Expression: 3 + 4 | API answer: 7 → \\boxed{7}")
+            parts.append("Expression: 10 - 3 | API answer: 5 → \\boxed{7}")
+            parts.append("")
+
+    parts.append(f"Expression: {expression} | API answer: {claude_answer} →")
+    parts.append("/no_think")
     return "\n".join(parts)
 
 

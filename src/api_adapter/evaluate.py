@@ -94,9 +94,11 @@ def evaluate_adapter(
 
     prompts = []
     for r in results:
+        claude_ans = r.get("claude_answer")
+        claude_ans_str = str(claude_ans) if claude_ans is not None else "none"
         prompt = format_adapter_prompt(
             expression=r["expression"],
-            claude_answer=r["claude_response"],
+            claude_answer=claude_ans_str,
             include_symbols=include_symbols,
         )
         prompts.append(prompt)

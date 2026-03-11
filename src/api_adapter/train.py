@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+
+import torch._dynamo
+torch._dynamo.config.cache_size_limit = 64
 
 from datasets import Dataset
 from trl import GRPOConfig, GRPOTrainer
@@ -14,13 +18,15 @@ from api_adapter.reward import correctness_reward, CORRECT_TOKEN
 
 
 SYSTEM_PROMPT = (
-    "You are an arithmetic verification assistant. "
-    "Check the API model's answer and respond with only the correct number."
+    "Evaluate the arithmetic expression using the symbol definitions provided. "
+    "Be concise. Put your final answer in \\boxed{}."
 )
 
 SYSTEM_PROMPT_WITH_CORRECT = (
-    "You are an arithmetic verification assistant. "
-    "Check the API model's answer. Respond with CORRECT if right, or the correct number if wrong."
+    "You are an adapter that checks an API model's arithmetic answer. "
+    "If the API answer is correct, respond with \\boxed{CORRECT}. "
+    "If wrong or missing, compute the correct answer and respond with \\boxed{answer}. "
+    "Use the symbol definitions to evaluate custom expressions. Be concise."
 )
 
 
@@ -28,6 +34,7 @@ def build_training_dataset(
     data_path: str | Path,
     include_symbols: bool = True,
     allow_correct_token: bool = False,
+    vague_symbols: bool = False,
 ) -> tuple[Dataset, dict[str, int], dict[str, int | None]]:
     """Build a HuggingFace Dataset for GRPO training from baseline results.
 
@@ -47,11 +54,15 @@ def build_training_dataset(
     with open(data_path) as f:
         for line in f:
             item = json.loads(line)
+            # Use parsed integer answer when available, otherwise "none"
+            claude_ans = item.get("claude_answer")
+            claude_ans_str = str(claude_ans) if claude_ans is not None else "none"
             user_msg = format_adapter_prompt(
                 expression=item["expression"],
-                claude_answer=item["claude_response"],
+                claude_answer=claude_ans_str,
                 include_symbols=include_symbols,
                 allow_correct_token=allow_correct_token,
+                vague_symbols=vague_symbols,
             )
             # Conversational format for TRL
             prompt = [
@@ -92,13 +103,15 @@ def train(
     include_symbols: bool = True,
     allow_correct_token: bool = False,
     num_train_epochs: int = 3,
-    per_device_train_batch_size: int = 4,
-    gradient_accumulation_steps: int = 4,
+    per_device_train_batch_size: int = 16,
+    gradient_accumulation_steps: int = 1,
     learning_rate: float = 5e-6,
-    num_generations: int = 4,
+    num_generations: int = 64,
     model_name: str | None = None,
     lora_rank: int = 32,
     max_steps: int = -1,
+    vague_symbols: bool = False,
+    resume_from_checkpoint: str | None = None,
 ):
     """Run GRPO training."""
     from api_adapter.local_model import DEFAULT_MODEL_NAME
@@ -112,6 +125,7 @@ def train(
     print(f"Building dataset from: {data_path}")
     dataset, prompt_key_to_answer, prompt_key_to_claude_answer = build_training_dataset(
         data_path, include_symbols=include_symbols, allow_correct_token=allow_correct_token,
+        vague_symbols=vague_symbols,
     )
     print(f"Training samples: {len(dataset)}")
 
@@ -133,12 +147,14 @@ def train(
         optim="adamw_8bit",
         num_generations=num_generations,
         generation_batch_size=num_generations,
-        max_completion_length=64,
+        max_completion_length=512,
         temperature=1.0,
+        top_k=50,
         logging_steps=1,
         save_steps=200,
         bf16=True,
         report_to="none",
+        chat_template_kwargs={"enable_thinking": False},
     )
 
     FastLanguageModel.for_training(model)
@@ -156,7 +172,7 @@ def train(
     )
 
     print("Starting GRPO training...")
-    trainer.train()
+    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
     print(f"Saving model to {output_dir}")
     model.save_pretrained(output_dir / "final_adapter")

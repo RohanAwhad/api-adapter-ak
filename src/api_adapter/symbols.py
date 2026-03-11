@@ -27,6 +27,12 @@ SYMBOL_DEFINITIONS = (
     "Precedence: β and γ bind tighter than θ and α (same as standard BODMAS)."
 )
 
+SYMBOL_DEFINITIONS_VAGUE = (
+    "The symbols θ, α, γ, β each represent one of the four basic arithmetic "
+    "operations (+, -, ×, ÷). Each symbol maps to exactly one operation. "
+    "Standard operator precedence (BODMAS) applies."
+)
+
 
 def _tokenize(expr: str) -> list[str]:
     """Tokenize an expression into numbers and operators."""

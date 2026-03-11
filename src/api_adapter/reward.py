@@ -11,12 +11,24 @@ def extract_answer(text: str, claude_answer: int | None = None) -> int | None:
     """Extract integer answer from model output.
 
     If the model outputs CORRECT (the pass-through token), returns claude_answer.
-    Otherwise extracts the last number from the text.
+    Otherwise extracts the number from \\boxed{}, falling back to last number.
     """
+    # Try \boxed{CORRECT} first
+    boxed_correct = re.search(r"\\boxed\{CORRECT\}", text, re.IGNORECASE)
+    if boxed_correct and claude_answer is not None:
+        return claude_answer
+
+    # Try \boxed{number}
+    boxed = re.search(r"\\boxed\{(-?\d+)\}", text)
+    if boxed:
+        return int(boxed.group(1))
+
+    # Fallback: check for bare CORRECT token
     stripped = text.strip().upper()
     if CORRECT_TOKEN in stripped and claude_answer is not None:
         return claude_answer
 
+    # Fallback: last number in text
     matches = re.findall(r"-?\d+", text)
     if matches:
         return int(matches[-1])

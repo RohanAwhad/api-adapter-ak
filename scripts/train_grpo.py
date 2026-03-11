@@ -9,6 +9,7 @@ Usage (on H100 node):
 
 from __future__ import annotations
 
+import unsloth  # noqa: F401 — must be imported before trl/transformers
 import argparse
 
 from api_adapter.train import train
@@ -17,6 +18,7 @@ CONDITIONS = {
     "A": {"include_symbols": True, "allow_correct_token": False},
     "B": {"include_symbols": False, "allow_correct_token": False},
     "C": {"include_symbols": True, "allow_correct_token": True},
+    "D": {"include_symbols": True, "allow_correct_token": True, "vague_symbols": True},
 }
 
 
@@ -24,17 +26,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--condition", choices=list(CONDITIONS.keys()), required=True,
-        help="A = with symbols, B = without symbols, C = with symbols + CORRECT token",
+        help="A = with symbols, B = without symbols, C = with symbols + CORRECT token, D = vague symbols + CORRECT token",
     )
     parser.add_argument("--data-path", default="data/baseline/train_baseline.jsonl")
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--max-steps", type=int, default=-1)
-    parser.add_argument("--batch-size", type=int, default=4)
-    parser.add_argument("--grad-accum", type=int, default=4)
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--grad-accum", type=int, default=1)
     parser.add_argument("--lr", type=float, default=5e-6)
-    parser.add_argument("--num-generations", type=int, default=4)
+    parser.add_argument("--num-generations", type=int, default=64)
     parser.add_argument("--lora-rank", type=int, default=32)
+    parser.add_argument("--resume", type=str, default=None,
+                        help="Path to checkpoint directory to resume from")
     args = parser.parse_args()
 
     cond = CONDITIONS[args.condition]
@@ -43,6 +47,7 @@ def main():
     print(f"Training Condition {args.condition}")
     print(f"  Include symbols:      {cond['include_symbols']}")
     print(f"  Allow CORRECT token:  {cond['allow_correct_token']}")
+    print(f"  Vague symbols:        {cond.get('vague_symbols', False)}")
     print(f"  Output: {output_dir}")
 
     train(
@@ -57,6 +62,8 @@ def main():
         learning_rate=args.lr,
         num_generations=args.num_generations,
         lora_rank=args.lora_rank,
+        vague_symbols=cond.get("vague_symbols", False),
+        resume_from_checkpoint=args.resume,
     )
 
 
