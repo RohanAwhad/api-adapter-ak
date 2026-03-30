@@ -7,7 +7,25 @@ User Message:
 Experiments:
 
 1. Directly using the trained model without few-shot examples.
+    ```
+    Overall:  210/400 = 52.5%
+    Custom:   18/200 = 9.0%
+    Standard: 192/200 = 96.0%
+    ```
 2. Using the trained model with few-shot examples.
+    ```
+    Overall:  382/400 = 95.5%
+    Custom:   188/200 = 94.0%
+    Standard: 194/200 = 97.0%
+    ```
 3. Using the trained model with few-shot examples but shuffling the symbol-to-ops mapping.
-4. Using the untrained model with few-shot examples.
-5. Using the untrained model with few-shot examples but shuffling the symbol-to-ops mapping.
+    ```
+    Overall:  363/400 = 90.8%
+    Custom:   169/200 = 84.5%
+    Standard: 194/200 = 97.0%
+    ```
+
+
+> Akash did mention that during training we are not giving few-shot examples, but that not true, as we see in the user message we are clearly giving examples.
+
+- So in next experiment we will add a flag that says whether we should add few-shot examples to user message or not.
