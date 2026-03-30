@@ -62,6 +62,7 @@ def format_adapter_prompt(
     include_symbols: bool = True,
     allow_correct_token: bool = False,
     vague_symbols: bool = False,
+    include_few_shot_examples: bool = True,
 ) -> str:
     """Format the input prompt for the adapter model.
 
@@ -73,6 +74,8 @@ def format_adapter_prompt(
             to accept Claude's answer as-is (Condition C).
         vague_symbols: If True, use vague symbol descriptions instead of
             explicit mappings (Condition D).
+        include_few_shot_examples: Whether to include worked examples in the
+            user prompt.
 
     Returns:
         Formatted prompt string.
@@ -84,31 +87,31 @@ def format_adapter_prompt(
         parts.append(SYMBOL_DEFINITIONS_VAGUE if vague_symbols else SYMBOL_DEFINITIONS)
         parts.append("")
 
-    # Few-shot examples
-    if allow_correct_token:
-        if include_symbols:
-            parts.append("Examples:")
-            parts.append("Expression: 3 θ 4 | API answer: 7 → \\boxed{CORRECT}")
-            parts.append("Expression: 10 α 3 | API answer: 5 → \\boxed{7}")
-            parts.append("Expression: 2 γ 6 | API answer: none → \\boxed{12}")
-            parts.append("")
+    if include_few_shot_examples:
+        if allow_correct_token:
+            if include_symbols:
+                parts.append("Examples:")
+                parts.append("Expression: 3 θ 4 | API answer: 7 → \\boxed{CORRECT}")
+                parts.append("Expression: 10 α 3 | API answer: 5 → \\boxed{7}")
+                parts.append("Expression: 2 γ 6 | API answer: none → \\boxed{12}")
+                parts.append("")
+            else:
+                parts.append("Examples:")
+                parts.append("Expression: 3 + 4 | API answer: 7 → \\boxed{CORRECT}")
+                parts.append("Expression: 10 - 3 | API answer: 5 → \\boxed{7}")
+                parts.append("")
         else:
-            parts.append("Examples:")
-            parts.append("Expression: 3 + 4 | API answer: 7 → \\boxed{CORRECT}")
-            parts.append("Expression: 10 - 3 | API answer: 5 → \\boxed{7}")
-            parts.append("")
-    else:
-        if include_symbols:
-            parts.append("Examples:")
-            parts.append("Expression: 3 θ 4 | API answer: 7 → \\boxed{7}")
-            parts.append("Expression: 10 α 3 | API answer: 5 → \\boxed{7}")
-            parts.append("Expression: 2 γ 6 | API answer: none → \\boxed{12}")
-            parts.append("")
-        else:
-            parts.append("Examples:")
-            parts.append("Expression: 3 + 4 | API answer: 7 → \\boxed{7}")
-            parts.append("Expression: 10 - 3 | API answer: 5 → \\boxed{7}")
-            parts.append("")
+            if include_symbols:
+                parts.append("Examples:")
+                parts.append("Expression: 3 θ 4 | API answer: 7 → \\boxed{7}")
+                parts.append("Expression: 10 α 3 | API answer: 5 → \\boxed{7}")
+                parts.append("Expression: 2 γ 6 | API answer: none → \\boxed{12}")
+                parts.append("")
+            else:
+                parts.append("Examples:")
+                parts.append("Expression: 3 + 4 | API answer: 7 → \\boxed{7}")
+                parts.append("Expression: 10 - 3 | API answer: 5 → \\boxed{7}")
+                parts.append("")
 
     parts.append(f"Expression: {expression} | API answer: {claude_answer} →")
     parts.append("/no_think")

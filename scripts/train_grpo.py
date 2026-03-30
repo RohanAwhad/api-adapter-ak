@@ -43,6 +43,12 @@ def main():
     parser.add_argument("--lr", type=float, default=5e-6)
     parser.add_argument("--num-generations", type=int, default=64)
     parser.add_argument("--lora-rank", type=int, default=32)
+    parser.add_argument(
+        "--few-shot-examples",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Include worked examples in the adapter user prompt",
+    )
     parser.add_argument("--resume", type=str, default=None,
                         help="Path to checkpoint directory to resume from")
     args = parser.parse_args()
@@ -54,6 +60,7 @@ def main():
     print(f"  Include symbols:      {cond['include_symbols']}")
     print(f"  Allow CORRECT token:  {cond['allow_correct_token']}")
     print(f"  Vague symbols:        {cond.get('vague_symbols', False)}")
+    print(f"  Few-shot examples:    {args.few_shot_examples}")
     print(f"  Output: {output_dir}")
 
     train(
@@ -61,6 +68,7 @@ def main():
         output_dir=output_dir,
         include_symbols=cond["include_symbols"],
         allow_correct_token=cond["allow_correct_token"],
+        include_few_shot_examples=args.few_shot_examples,
         num_train_epochs=args.epochs,
         max_steps=args.max_steps,
         per_device_train_batch_size=args.batch_size,

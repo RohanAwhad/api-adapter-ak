@@ -55,6 +55,7 @@ def build_training_dataset(
     include_symbols: bool = True,
     allow_correct_token: bool = False,
     vague_symbols: bool = False,
+    include_few_shot_examples: bool = True,
 ) -> tuple[Dataset, dict[str, int], dict[str, int | None]]:
     """Build a HuggingFace Dataset for GRPO training from baseline results.
 
@@ -83,6 +84,7 @@ def build_training_dataset(
                 include_symbols=include_symbols,
                 allow_correct_token=allow_correct_token,
                 vague_symbols=vague_symbols,
+                include_few_shot_examples=include_few_shot_examples,
             )
             # Conversational format for TRL
             prompt = [
@@ -122,6 +124,7 @@ def train(
     output_dir: str | Path = "outputs/grpo",
     include_symbols: bool = True,
     allow_correct_token: bool = False,
+    include_few_shot_examples: bool = True,
     num_train_epochs: int = 3,
     per_device_train_batch_size: int = 16,
     gradient_accumulation_steps: int = 1,
@@ -141,8 +144,11 @@ def train(
 
     print(f"Building dataset from: {data_path}")
     dataset, prompt_key_to_answer, prompt_key_to_claude_answer = build_training_dataset(
-        data_path, include_symbols=include_symbols, allow_correct_token=allow_correct_token,
+        data_path,
+        include_symbols=include_symbols,
+        allow_correct_token=allow_correct_token,
         vague_symbols=vague_symbols,
+        include_few_shot_examples=include_few_shot_examples,
     )
     print(f"Training samples: {len(dataset)}")
 

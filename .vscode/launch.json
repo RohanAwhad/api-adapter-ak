@@ -13,6 +13,7 @@
           "CUDA_VISIBLE_DEVICES": "0"
         },
         "args": [
+          "--no-few-shot-examples",
           "--condition", "D",
           "--max-steps", "1000",
           "--resume", "outputs/grpo_condition_D/checkpoint-800"

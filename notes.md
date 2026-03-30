@@ -29,3 +29,7 @@ Experiments:
 > Akash did mention that during training we are not giving few-shot examples, but that not true, as we see in the user message we are clearly giving examples.
 
 - So in next experiment we will add a flag that says whether we should add few-shot examples to user message or not.
+
+
+New User Message:
+'The symbols θ, α, γ, β each represent one of the four basic arithmetic operations (+, -, ×, ÷). Each symbol maps to exactly one operation. Standard operator precedence (BODMAS) applies.\n\nExpression: 25 - 14 | API answer: 11 →\n/no_think'
