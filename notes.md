@@ -6,6 +6,14 @@ User Message:
 
 Experiments:
 
+0. API + Trained Adapter
+'total': 400, 'correct': 379, 'accuracy': 0.9475, 'custom_total': 200, 'custom_correct': 187, 'custom_accuracy': 0.935, 'standard_total': 200, 'standard_correct': 192, 'standard_accuracy': 0.96}
+    ```
+    Overall:  379/400 = 94.75%
+    Custom:   187/200 = 93.5%
+    Standard: 192/200 = 96.0%
+    ```
+
 1. Directly using the trained model without few-shot examples.
     ```
     Overall:  210/400 = 52.5%
@@ -25,11 +33,15 @@ Experiments:
     Standard: 194/200 = 97.0%
     ```
 
+---
 
 > Akash did mention that during training we are not giving few-shot examples, but that not true, as we see in the user message we are clearly giving examples.
 
 - So in next experiment we will add a flag that says whether we should add few-shot examples to user message or not.
 
-
 New User Message:
 'The symbols θ, α, γ, β each represent one of the four basic arithmetic operations (+, -, ×, ÷). Each symbol maps to exactly one operation. Standard operator precedence (BODMAS) applies.\n\nExpression: 25 - 14 | API answer: 11 →\n/no_think'
+
+---
+
+I seem to be getting loss 0. But because of no visibility into what the model is producing, i need to add wandb observability for llm training.
