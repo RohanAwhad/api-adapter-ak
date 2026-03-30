@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Debug train_grpo condition D",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${workspaceFolder}/scripts/train_grpo.py",
+        "cwd": "${workspaceFolder}",
+        "console": "integratedTerminal",
+        "justMyCode": false,
+        "env": {
+          "CUDA_VISIBLE_DEVICES": "0"
+        },
+        "args": [
+          "--condition", "D",
+          "--max-steps", "1000",
+          "--resume", "outputs/grpo_condition_D/checkpoint-800"
+        ]
+      }
+    ]
+  }

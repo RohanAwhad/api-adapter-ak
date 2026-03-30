@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import os
 from pathlib import Path
 
-import torch._dynamo
-torch._dynamo.config.cache_size_limit = 64
 
 from datasets import Dataset
 from trl import GRPOConfig, GRPOTrainer
@@ -28,6 +27,27 @@ SYSTEM_PROMPT_WITH_CORRECT = (
     "If wrong or missing, compute the correct answer and respond with \\boxed{answer}. "
     "Use the symbol definitions to evaluate custom expressions. Be concise."
 )
+
+
+def _disable_tokenizer_thinking_if_supported(tokenizer) -> None:
+    """Force chat templating to disable reasoning mode when supported."""
+    apply_chat_template = getattr(tokenizer, "apply_chat_template", None)
+    if apply_chat_template is None:
+        return
+
+    try:
+        signature = inspect.signature(apply_chat_template)
+    except (TypeError, ValueError):
+        return
+
+    if "enable_thinking" not in signature.parameters:
+        return
+
+    def apply_chat_template_without_thinking(*args, **kwargs):
+        kwargs.setdefault("enable_thinking", False)
+        return apply_chat_template(*args, **kwargs)
+
+    tokenizer.apply_chat_template = apply_chat_template_without_thinking
 
 
 def build_training_dataset(
@@ -119,9 +139,6 @@ def train(
     if model_name is None:
         model_name = DEFAULT_MODEL_NAME
 
-    print(f"Loading model: {model_name}")
-    model, tokenizer = load_model(model_name=model_name, lora_rank=lora_rank)
-
     print(f"Building dataset from: {data_path}")
     dataset, prompt_key_to_answer, prompt_key_to_claude_answer = build_training_dataset(
         data_path, include_symbols=include_symbols, allow_correct_token=allow_correct_token,
@@ -133,6 +150,10 @@ def train(
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"Loading model: {model_name}")
+    model, tokenizer = load_model(model_name=model_name, lora_rank=lora_rank)
+    _disable_tokenizer_thinking_if_supported(tokenizer)
 
     config = GRPOConfig(
         output_dir=str(output_dir),
@@ -154,7 +175,6 @@ def train(
         save_steps=200,
         bf16=True,
         report_to="none",
-        chat_template_kwargs={"enable_thinking": False},
     )
 
     FastLanguageModel.for_training(model)

@@ -22,3 +22,6 @@ venv/
 *.swp
 *.swo
 .DS_Store
+
+unsloth_compiled_cache/
+uv.lock

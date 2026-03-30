@@ -10,11 +10,11 @@ Usage (on H100 node):
 from __future__ import annotations
 
 import os
-os.environ["TORCHDYNAMO_CACHE_SIZE_LIMIT"] = "256"
+os.environ["TORCHDYNAMO_CACHE_SIZE_LIMIT"] = "64"
 
 import unsloth  # noqa: F401 — must be imported before trl/transformers
 import torch._dynamo
-torch._dynamo.config.cache_size_limit = 256
+torch._dynamo.config.cache_size_limit = 64
 
 import argparse
 
