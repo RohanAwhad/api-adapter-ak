@@ -22,6 +22,8 @@ gpu = [
     "transformers==4.57.6",
     "peft==0.18.1",
     "accelerate==1.13.0",
+    "wandb",
+    "python-dotenv",
 ]
 dev = [
     "pytest>=8.0",
