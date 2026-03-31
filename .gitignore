@@ -25,3 +25,5 @@ venv/
 
 unsloth_compiled_cache/
 uv.lock
+wandb
+logs
