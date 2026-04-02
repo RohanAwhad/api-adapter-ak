@@ -1,7 +1,7 @@
 """
-OUTPUT_DIR=outputs/grpo-api-adapter-post-training \
-WANDB_RUN_NAME=test-v2-no-few-shot-examples-api-adapter-post-training \
-CUDA_VISIBLE_DEVICES=0 \
+OUTPUT_DIR=outputs/grpo-api-adapter-post-training-1 \
+WANDB_RUN_NAME=test-v3-no-few-shot-examples-api-adapter-post-training \
+CUDA_VISIBLE_DEVICES=1 \
 python scripts/api_adapter_training.py 2>&1 | tee logs/api_adapter_training.log
 """
 import torch._dynamo
@@ -179,7 +179,7 @@ config = GRPOConfig(
     run_name=wandb_run_name,
     max_steps=max_steps,
     per_device_train_batch_size=per_device_train_batch_size,
-    per_device_eval_batch_size=per_device_eval_batch_size,
+    # per_device_eval_batch_size=per_device_eval_batch_size,
     gradient_accumulation_steps=gradient_accumulation_steps,
     learning_rate=learning_rate,
     weight_decay=0.001,
@@ -197,9 +197,9 @@ config = GRPOConfig(
     report_to="wandb",
     log_completions=True,
     num_completions_to_print=5,
-    eval_strategy="steps",
-    eval_steps=100,
-    do_eval=True,
+    # eval_strategy="steps",
+    # eval_steps=100,
+    # do_eval=True,
 )
 print(config)
 
@@ -288,7 +288,6 @@ trainer = GRPOTrainer(
     reward_funcs=[correctness_reward_fn_strict],
     args=config,
     train_dataset=train_dataset,
-    eval_dataset=eval_dataset,
     processing_class=tokenizer,
 )
 trainer.train()
