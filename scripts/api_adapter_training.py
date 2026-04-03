@@ -1,6 +1,6 @@
 """
-OUTPUT_DIR=outputs/grpo-api-adapter-post-training-1 \
-WANDB_RUN_NAME=test-v3-no-few-shot-examples-api-adapter-post-training \
+OUTPUT_DIR=outputs/grpo-api-adapter-cold-start-training-0 \
+WANDB_RUN_NAME=test-v4-no-few-shot-examples-api-adapter-cold-start-training-0 \
 CUDA_VISIBLE_DEVICES=1 \
 python scripts/api_adapter_training.py 2>&1 | tee logs/api_adapter_training.log
 """
@@ -167,7 +167,7 @@ from pathlib import Path
 from trl.trainer import GRPOConfig
 
 output_dir = Path(os.environ['OUTPUT_DIR'])
-max_steps = 1000
+max_steps = 3000
 per_device_train_batch_size = 16
 per_device_eval_batch_size = 64
 gradient_accumulation_steps = 1
@@ -240,7 +240,7 @@ claude_answer = ['3', '3', '5390', '6', '6', 'null', '-44']
 print(correctness_reward_fn_strict(prompts, adapter_completions, answer, claude_answer))
 
 
-DEFAULT_MODEL_NAME = "outputs/grpo-adapter-only/checkpoint-1000/"
+DEFAULT_MODEL_NAME = "unsloth/Qwen3-8B"
 DEFAULT_MAX_SEQ_LENGTH = 2048
 DEFAULT_LORA_RANK = 32
 
@@ -253,19 +253,19 @@ model, tokenizer = FastLanguageModel.from_pretrained(
 )
 
 # because the model was mid-trained using peft, we don't need to add the lora layers again
-# model = FastLanguageModel.get_peft_model(
-#     model,
-#     r=DEFAULT_LORA_RANK,
-#     target_modules=[
-#         "q_proj", "k_proj", "v_proj", "o_proj",
-#         "gate_proj", "up_proj", "down_proj",
-#     ],
-#     lora_alpha=DEFAULT_LORA_RANK * 2,
-#     lora_dropout=0,
-#     bias="none",
-#     use_gradient_checkpointing="unsloth",
-#     random_state=3407,
-# )
+model = FastLanguageModel.get_peft_model(
+    model,
+    r=DEFAULT_LORA_RANK,
+    target_modules=[
+        "q_proj", "k_proj", "v_proj", "o_proj",
+        "gate_proj", "up_proj", "down_proj",
+    ],
+    lora_alpha=DEFAULT_LORA_RANK * 2,
+    lora_dropout=0,
+    bias="none",
+    use_gradient_checkpointing="unsloth",
+    random_state=3407,
+)
 
 FastLanguageModel.for_training(model)
 
