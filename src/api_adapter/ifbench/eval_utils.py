@@ -76,7 +76,7 @@ class OutputExample:
 # In[19]:
 
 
-import instructions_registry
+from . import instructions_registry
 
 
 # In[20]:

@@ -51,9 +51,7 @@ pbar.close()
 
 print(claude_responses[0])
 
-import sys
-sys.path.append("notebooks/ifbench/src")
-from eval_utils import convert_to_input_example, test_instruction_following_loose
+from api_adapter.ifbench.eval_utils import convert_to_input_example, test_instruction_following_loose
 
 dataset = dataset.add_column('claude_response', claude_responses)
 claude_rewards = []
