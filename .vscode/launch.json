@@ -18,6 +18,21 @@
           "--max-steps", "1000",
           "--resume", "outputs/grpo_condition_D/checkpoint-800"
         ]
+      },
+      {
+        "name": "Debug ifbench evaluation",
+        "type": "debugpy",
+        "request": "launch",
+        "module": "run_eval",
+        "cwd": "${workspaceFolder}",
+        "console": "integratedTerminal",
+        "justMyCode": false,
+        "python": "${workspaceFolder}/external_repos/IFBench/.venv/bin/python",
+        "args": [
+          "--input_data=data/ifbench/input_test_data.jsonl",
+          "--input_response_data=data/ifbench/qwen3-8b.jsonl",
+          "--output_dir=data/ifbench/qwen3-8b_evaluation/"
+        ]
       }
     ]
   }
