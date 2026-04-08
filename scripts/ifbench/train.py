@@ -34,7 +34,7 @@ GPU_MEMORY_UTILIZATION = 0.5
 LORA_RANK = 32
 LORA_ALPHA = LORA_RANK * 2
 
-WANDB_RUN_NAME = "test-run-v2"
+WANDB_RUN_NAME = "test-run-v3"
 OUTPUT_DIR = Path(f"outputs/ifbench/{WANDB_RUN_NAME}")
 MAX_STEPS = 3000
 PER_DEVICE_TRAIN_BATCH_SIZE = 16
@@ -57,15 +57,15 @@ NUM_COMPLETIONS_TO_PRINT = 5
 
 SYSTEM_PROMPT = """
 You are a helpful assistant. Your job is to look at the user prompt and the draft response and output <|ADAPTER_RESPONSE_START|>CORRECT<|ADAPTER_RESPONSE_END|> if the draft response is correct
-If the draft response is incorrect, output the correct final answer <|ADAPTER_RESPONSE_START|>final_answer<|ADAPTER_RESPONSE_END|>, where final_answer is the corrent final answer.
+If the draft response is incorrect, print the correct final answer wrapped in <|ADAPTER_RESPONSE_START|> ... <|ADAPTER_RESPONSE_END|> tags.
 
 Example:
 User Prompt: What is the capital of France?
-Draft Response: The capital of France is Paris.
+<draft_response>The capital of France is Paris.</draft_response>
 Output: <|ADAPTER_RESPONSE_START|>CORRECT<|ADAPTER_RESPONSE_END|>
 
 User Prompt: What is the capital of France?
-Draft Response: The capital of France is London.
+<draft_response>The capital of France is London.</draft_response>
 Output: The capital of France is Paris but the draft response says its London. So it is incorrect. <|ADAPTER_RESPONSE_START|>The capital of France is Paris.<|ADAPTER_RESPONSE_END|>
 """.strip()
 
