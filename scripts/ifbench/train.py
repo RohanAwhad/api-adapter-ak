@@ -124,7 +124,7 @@ from trl.trainer import GRPOConfig
 
 output_dir = Path("outputs/ifbench/test-run")
 output_dir.mkdir(parents=True, exist_ok=True)
-wandb_run_name = "test-run"
+wandb_run_name = "test-run-v2"
 max_steps = 3000
 per_device_train_batch_size = 16
 per_device_eval_batch_size = 64
@@ -146,7 +146,7 @@ config = GRPOConfig(
     optim="adamw_8bit",
     num_generations=num_generations,
     generation_batch_size=num_generations,
-    max_completion_length=512,
+    max_completion_length=1024,
     temperature=1.0,
     top_k=50,
     logging_steps=5,
