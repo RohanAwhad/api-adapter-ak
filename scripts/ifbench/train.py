@@ -1,40 +1,62 @@
-import sys
-from loguru import logger
-
-logger.remove()
-
-# setup a file handler
-file_handler = logger.add("logs/ifbench/train.log")
-
-
-from datasets import Dataset
-
-dataset = Dataset.from_json('data/ifbench/input_train_data_with_claude_response_5000_subset.jsonl')
-
-
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-
-
-
-import torch._dynamo
-torch._dynamo.config.cache_size_limit = 256
-
+import re
+import sys
+from pathlib import Path
 
 import dotenv
-dotenv.load_dotenv(override=True)
-
+import torch._dynamo
+from datasets import Dataset
+from loguru import logger
+from trl.trainer import GRPOConfig, GRPOTrainer
 from unsloth import FastLanguageModel
 
+from api_adapter.ifbench.eval_utils import (
+    test_instruction_following_loose,
+    InputExample,
+    normalize_instruction_kwargs
+)
 
+# ===
+# Configuration
+# ===
 
-import re
-ptrn = re.compile(r"<\|ADAPTER_RESPONSE_START\|>(.*)<\|ADAPTER_RESPONSE_END\|>", re.DOTALL)
+LOG_FILE = "logs/ifbench/train_script.log"
+CUDA_DEVICES = '1'
 
+DYNAMO_CACHE_SIZE_LIMIT = 256
+DATASET_PATH = 'data/ifbench/input_train_data_with_claude_response_5000_subset.jsonl'
 
+MODEL_NAME = "unsloth/Qwen3-8B"
+MAX_SEQ_LENGTH = 4096
+LOAD_IN_4BIT = False
+GPU_MEMORY_UTILIZATION = 0.5
+
+LORA_RANK = 32
+LORA_ALPHA = LORA_RANK * 2
+
+WANDB_RUN_NAME = "test-run-v2"
+OUTPUT_DIR = Path(f"outputs/ifbench/{WANDB_RUN_NAME}")
+MAX_STEPS = 3000
+PER_DEVICE_TRAIN_BATCH_SIZE = 16
+PER_DEVICE_EVAL_BATCH_SIZE = 64
+GRADIENT_ACCUMULATION_STEPS = 1
+LEARNING_RATE = 5e-6
+NUM_GENERATIONS = 64
+WEIGHT_DECAY = 0.001
+WARMUP_RATIO = 0.1
+LR_SCHEDULER_TYPE = "linear"
+OPTIM = "adamw_8bit"
+MAX_COMPLETION_LENGTH = 512
+TEMPERATURE = 1.0
+TOP_K = 50
+LOGGING_STEPS = 5
+SAVE_STEPS = 200
+BF16 = True
+REPORT_TO = "wandb"
+NUM_COMPLETIONS_TO_PRINT = 5
 
 SYSTEM_PROMPT = """
-You are a helpful assistant. Your job is to look at the user prompt and the draft response and output <|ADAPTER_RESPONSE_START|>CORRECT<|ADAPTER_RESPONSE_END|> if the draft response is correct 
+You are a helpful assistant. Your job is to look at the user prompt and the draft response and output <|ADAPTER_RESPONSE_START|>CORRECT<|ADAPTER_RESPONSE_END|> if the draft response is correct
 If the draft response is incorrect, output the correct final answer <|ADAPTER_RESPONSE_START|>final_answer<|ADAPTER_RESPONSE_END|>, where final_answer is the corrent final answer.
 
 Example:
@@ -47,6 +69,20 @@ Draft Response: The capital of France is London.
 Output: The capital of France is Paris but the draft response says its London. So it is incorrect. <|ADAPTER_RESPONSE_START|>The capital of France is Paris.<|ADAPTER_RESPONSE_END|>
 """.strip()
 
+# ===
+
+logger.remove()
+file_handler = logger.add(LOG_FILE)
+
+os.environ['CUDA_VISIBLE_DEVICES'] = CUDA_DEVICES
+
+torch._dynamo.config.cache_size_limit = DYNAMO_CACHE_SIZE_LIMIT
+
+dotenv.load_dotenv(override=True)
+
+dataset = Dataset.from_json(DATASET_PATH)
+
+ptrn = re.compile(r"<\|ADAPTER_RESPONSE_START\|>(.*)<\|ADAPTER_RESPONSE_END\|>", re.DOTALL)
 
 dataset = dataset.map(lambda x: {
     "prompt": [
@@ -59,25 +95,14 @@ dataset = dataset.map(lambda x: {
     ]
 })
 
-
-DEFAULT_MODEL_NAME = "unsloth/Qwen3-8B"
-DEFAULT_MAX_SEQ_LENGTH = 4096
-DEFAULT_LORA_RANK = 32
-
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name=DEFAULT_MODEL_NAME,
-    max_seq_length=DEFAULT_MAX_SEQ_LENGTH,
-    dtype=None,  # auto-detect (bf16 on H100)
-    load_in_4bit=False,
-    gpu_memory_utilization=0.5,
+    model_name=MODEL_NAME,
+    max_seq_length=MAX_SEQ_LENGTH,
+    dtype=None,
+    load_in_4bit=LOAD_IN_4BIT,
+    gpu_memory_utilization=GPU_MEMORY_UTILIZATION,
 )
 
-
-from api_adapter.ifbench.eval_utils import (
-    test_instruction_following_loose,
-    InputExample,
-    normalize_instruction_kwargs
-)
 
 def reward_fn(prompts, completions, ground_truth, key, claude_reward, **kwargs):
     responses = [completion[0]["content"] for completion in completions]
@@ -107,61 +132,48 @@ def reward_fn(prompts, completions, ground_truth, key, claude_reward, **kwargs):
 
 model = FastLanguageModel.get_peft_model(
     model,
-    r=DEFAULT_LORA_RANK,
+    r=LORA_RANK,
     target_modules=[
         "q_proj", "k_proj", "v_proj", "o_proj",
         "gate_proj", "up_proj", "down_proj",
     ],
-    lora_alpha=DEFAULT_LORA_RANK * 2,
+    lora_alpha=LORA_ALPHA,
     lora_dropout=0,
     bias="none",
     use_gradient_checkpointing="unsloth",
     random_state=3407,
 )
 
-from pathlib import Path
-from trl.trainer import GRPOConfig
-
-output_dir = Path("outputs/ifbench/test-run")
-output_dir.mkdir(parents=True, exist_ok=True)
-wandb_run_name = "test-run-v2"
-max_steps = 3000
-per_device_train_batch_size = 16
-per_device_eval_batch_size = 64
-gradient_accumulation_steps = 1
-learning_rate = 5e-6
-num_generations = 64
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 config = GRPOConfig(
-    output_dir=str(output_dir),
-    run_name=wandb_run_name,
-    max_steps=max_steps,
-    per_device_train_batch_size=per_device_train_batch_size,
-    # per_device_eval_batch_size=per_device_eval_batch_size,
-    gradient_accumulation_steps=gradient_accumulation_steps,
-    learning_rate=learning_rate,
-    weight_decay=0.001,
-    warmup_ratio=0.1,
-    lr_scheduler_type="linear",
-    optim="adamw_8bit",
-    num_generations=num_generations,
-    generation_batch_size=num_generations,
-    max_completion_length=1024,
-    temperature=1.0,
-    top_k=50,
-    logging_steps=5,
-    save_steps=200,
-    bf16=True,
-    report_to="wandb",
+    output_dir=str(OUTPUT_DIR),
+    run_name=WANDB_RUN_NAME,
+    max_steps=MAX_STEPS,
+    per_device_train_batch_size=PER_DEVICE_TRAIN_BATCH_SIZE,
+    # per_device_eval_batch_size=PER_DEVICE_EVAL_BATCH_SIZE,
+    gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
+    learning_rate=LEARNING_RATE,
+    weight_decay=WEIGHT_DECAY,
+    warmup_ratio=WARMUP_RATIO,
+    lr_scheduler_type=LR_SCHEDULER_TYPE,
+    optim=OPTIM,
+    num_generations=NUM_GENERATIONS,
+    generation_batch_size=NUM_GENERATIONS,
+    max_completion_length=MAX_COMPLETION_LENGTH,
+    temperature=TEMPERATURE,
+    top_k=TOP_K,
+    logging_steps=LOGGING_STEPS,
+    save_steps=SAVE_STEPS,
+    bf16=BF16,
+    report_to=REPORT_TO,
     log_completions=True,
-    num_completions_to_print=5,
+    num_completions_to_print=NUM_COMPLETIONS_TO_PRINT,
     # eval_strategy="steps",
     # eval_steps=100,
     # do_eval=True,
 )
 
-
-from trl.trainer import GRPOTrainer
 
 # Workaround: TRL expects warnings_issued on the model but PEFT doesn't expose it
 if not hasattr(model, "warnings_issued"):
@@ -176,5 +188,5 @@ trainer = GRPOTrainer(
 )
 trainer.train()
 
-model.save_pretrained(output_dir / "final_adapter")
-tokenizer.save_pretrained(output_dir / "final_adapter")
+model.save_pretrained(OUTPUT_DIR / "final_adapter")
+tokenizer.save_pretrained(OUTPUT_DIR / "final_adapter")
