@@ -1,14 +1,23 @@
-import os
+"""
+CUDA_VISIBLE_DEVICES=1 python scripts/ifbench/train.py 2>&1 | tee logs/ifbench/train_script_tee.log
+
+
+# things to add:
+- check for prompt length before training, and discard long samples
+- multi-gpu training
+
+"""
+import argparse
 import re
-import sys
 from pathlib import Path
 
 import dotenv
 import torch._dynamo
 from datasets import Dataset
 from loguru import logger
-from trl.trainer import GRPOConfig, GRPOTrainer
 from unsloth import FastLanguageModel
+
+from trl.trainer import GRPOConfig, GRPOTrainer  # noqa: E402 — must import after unsloth
 
 from api_adapter.ifbench.eval_utils import (
     test_instruction_following_loose,
@@ -21,13 +30,12 @@ from api_adapter.ifbench.eval_utils import (
 # ===
 
 LOG_FILE = "logs/ifbench/train_script.log"
-CUDA_DEVICES = '1'
 
 DYNAMO_CACHE_SIZE_LIMIT = 256
 DATASET_PATH = 'data/ifbench/input_train_data_with_claude_response_5000_subset.jsonl'
 
 MODEL_NAME = "unsloth/Qwen3-8B"
-MAX_SEQ_LENGTH = 4096
+MAX_SEQ_LENGTH = 2048
 LOAD_IN_4BIT = False
 GPU_MEMORY_UTILIZATION = 0.5
 
@@ -69,12 +77,14 @@ User Prompt: What is the capital of France?
 Output: The capital of France is Paris but the draft response says its London. So it is incorrect. <|ADAPTER_RESPONSE_START|>The capital of France is Paris.<|ADAPTER_RESPONSE_END|>
 """.strip()
 
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--resume-from-checkpoint', type=str, default=None)
+args = parser.parse_args()
 # ===
 
 logger.remove()
 file_handler = logger.add(LOG_FILE)
-
-os.environ['CUDA_VISIBLE_DEVICES'] = CUDA_DEVICES
 
 torch._dynamo.config.cache_size_limit = DYNAMO_CACHE_SIZE_LIMIT
 
@@ -186,7 +196,10 @@ trainer = GRPOTrainer(
     train_dataset=dataset,
     processing_class=tokenizer,
 )
-trainer.train()
+if args.resume_from_checkpoint:
+    trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
+else:
+    trainer.train()
 
 model.save_pretrained(OUTPUT_DIR / "final_adapter")
 tokenizer.save_pretrained(OUTPUT_DIR / "final_adapter")
