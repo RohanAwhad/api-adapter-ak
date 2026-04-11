@@ -1,3 +1,7 @@
+"""
+CUDA_VISIBLE_DEVICES=2 python scripts/ifbench/gepa_optimize_adapter_system_prompt.py
+"""
+
 from datasets import Dataset
 
 dataset = Dataset.from_json('data/ifbench/input_train_data_with_claude_response_5000_subset.jsonl')
@@ -8,9 +12,6 @@ dataset
 # # baseline
 
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-
-
 from unsloth import FastLanguageModel
 
 
@@ -300,9 +301,12 @@ import dotenv
 dotenv.load_dotenv(override=True)
 if os.environ.get('WANDB_API_KEY') is None: print("WANDB_API_KEY is not set")
 wandb_kwargs = {'project': 'api-adapter-ifbench-gepa', 'entity': 'ronny21'}
-os.environ['WANDB_RUN_NAME'] = 'gepa-optimize-v1-system-prompt'
+os.environ['WANDB_RUN_NAME'] = 'gepa-optimize-v2-system-prompt'
 
 
+from pathlib import Path
+CHECKPOINT_DIR = Path(f'outputs/ifbench/gepa_optimize_adapter_system_prompt/{os.environ["WANDB_RUN_NAME"]}')
+CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 result = gepa.optimize(
     seed_candidate=seed_prompt,
     trainset=trainset,
@@ -310,9 +314,14 @@ result = gepa.optimize(
     task_lm=task_lm_callable,
     max_metric_calls=50000,
     reflection_lm=reflection_lm_callable,
-    reflection_minibatch_size=10,
+    reflection_minibatch_size=5,
     reflection_prompt_template=reflection_prompt_template,
     evaluator=evaluate_callable,
+    use_merge=True,
+    max_merge_invocations=50000,
+    acceptance_criterion="improvement_or_equal",
+    run_dir=CHECKPOINT_DIR,
+    # logging args
     use_wandb=True,
     wandb_init_kwargs=wandb_kwargs,
     wandb_api_key=os.environ['WANDB_API_KEY'],
@@ -320,46 +329,12 @@ result = gepa.optimize(
 
 print("Optimized prompt:", result.best_candidate['system_prompt'])
 
-with open('scripts/ifbench/gepa_optimized_system_prompt.txt', 'w') as f:
+with open(CHECKPOINT_DIR / 'optimized_system_prompt.txt', 'w') as f:
     f.write(result.best_candidate['system_prompt'])
-
-example_system_prompt = """You are a helpful assistant. Your job is to look at the user prompt and the draft response and determine if the draft response is correct.
-
-IMPORTANT FORMATTING RULES:
-1. Your ENTIRE response must be in the format: <|ADAPTER_RESPONSE_START|>your_answer_here<|ADAPTER_RESPONSE_END|>
-2. Do NOT include any text, headers, reasoning, or explanations outside of the <|ADAPTER_RESPONSE_START|> and <|ADAPTER_RESPONSE_END|> tags.
-3. Do NOT include markdown headers like "### Item 1" or "## Generated Outputs" in your response.
-4. If the draft response is correct, output exactly: <|ADAPTER_RESPONSE_START|>CORRECT<|ADAPTER_RESPONSE_END|>
-5. If the draft response is incorrect, place the full corrected response between the tags: <|ADAPTER_RESPONSE_START|>corrected response here<|ADAPTER_RESPONSE_END|>
-6. Never put the literal word "final_answer" between the tags. Always put the actual corrected content.
-
-VERIFICATION CHECKLIST - Check the draft response against ALL of the following:
-- Factual accuracy: Does the draft response answer the question correctly with accurate information?
-- Constraint satisfaction: Does the draft response satisfy ALL constraints specified in the user prompt? These may include:
-  - Word/character limits (e.g., "Answer with less than X words")
-  - Keyword inclusion/exclusion (e.g., "Do not include keyword X", "Include keyword X")
-  - Letter frequency requirements (e.g., "the letter X should appear at least Y times")
-  - Paragraph count requirements (e.g., "There should be X paragraphs")
-  - Sentence-ending word requirements (e.g., "The last word of each sentence should be X")
-  - Specific ending phrases (e.g., "Finish your response with this exact phrase")
-  - Any other formatting or content constraints
-- If ANY constraint is violated or any factual error exists, the draft is INCORRECT.
-
-When correcting an incorrect draft, ensure your corrected response satisfies ALL constraints from the user prompt simultaneously.
-
-Example:
-User Prompt: What is the capital of France?
-Draft Response: The capital of France is Paris.
-Output: <|ADAPTER_RESPONSE_START|>CORRECT<|ADAPTER_RESPONSE_END|>
-
-User Prompt: What is the capital of France?
-Draft Response: The capital of France is London.
-Output: <|ADAPTER_RESPONSE_START|>The capital of France is Paris.<|ADAPTER_RESPONSE_END|>"""
-
 
 eval_dataset = eval_dataset.map(lambda x: {
     "prompt": [
-        {"role": "system", "content": example_system_prompt},
+        {"role": "system", "content": result.best_candidate['system_prompt']},
         {"role": "user", "content": x['prompt'][-1]['content']}
     ]
 })
