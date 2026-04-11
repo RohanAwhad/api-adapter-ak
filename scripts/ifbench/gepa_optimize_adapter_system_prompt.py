@@ -319,7 +319,7 @@ result = gepa.optimize(
     evaluator=evaluate_callable,
     use_merge=True,
     max_merge_invocations=50000,
-    acceptance_criterion="improvement_or_equal",
+    # acceptance_criterion="improvement_or_equal",  # this is not yet in the latest version of gepa on pypi
     run_dir=CHECKPOINT_DIR,
     # logging args
     use_wandb=True,
