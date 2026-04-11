@@ -2,6 +2,7 @@
 CUDA_VISIBLE_DEVICES=2 python scripts/ifbench/gepa_optimize_adapter_system_prompt.py
 """
 
+from loguru import logger
 from datasets import Dataset
 
 dataset = Dataset.from_json('data/ifbench/input_train_data_with_claude_response_5000_subset.jsonl')
@@ -192,8 +193,8 @@ def task_lm_callable(messages) -> str:
     ]
 
     sampling_params = SamplingParams(
-        temperature=1.0,
-        max_tokens=8192,
+        temperature=0.6,
+        max_tokens=16384,
     )
 
     outputs = model.fast_generate(
@@ -220,7 +221,13 @@ client = AnthropicVertex(
     project_id=os.environ["GOOGLE_CLOUD_PROJECT"],
 )
 
-
+# get cost for response
+CLAUDE_OPUS_PRICING = {
+    "input_cost": 5.00 / 1_000_000,
+    "output_cost": 25.00 / 1_000_000,
+    "cache_write_cost": 6.25 / 1_000_000,
+    "cache_read_cost": 0.50 / 1_000_000,
+}
 def reflection_lm_callable(prompt: str | list[dict[str, str]]) -> str:
     if isinstance(prompt, str): prompt = [{"role": "user", "content": prompt}]
     # get system prompt
@@ -244,6 +251,16 @@ def reflection_lm_callable(prompt: str | list[dict[str, str]]) -> str:
 
     with client.messages.stream(**kwargs) as stream:
         response = stream.get_final_message()
+
+    global TOTAL_COST
+    usage = response.usage
+    input_cost = usage.input_tokens * CLAUDE_OPUS_PRICING["input_cost"]
+    output_cost = usage.output_tokens * CLAUDE_OPUS_PRICING["output_cost"]
+    cache_write_cost = usage.cache_creation_input_tokens * CLAUDE_OPUS_PRICING["cache_write_cost"]
+    cache_read_cost = usage.cache_read_input_tokens * CLAUDE_OPUS_PRICING["cache_read_cost"]
+    total_cost = input_cost + output_cost + cache_write_cost + cache_read_cost
+    TOTAL_COST += total_cost
+    logger.info(f"Total cost uptill now: {TOTAL_COST}")
     return response.content[-1].text
 
 print('Reflection LM callable:', reflection_lm_callable("What is the capital of France?"))
@@ -301,12 +318,14 @@ import dotenv
 dotenv.load_dotenv(override=True)
 if os.environ.get('WANDB_API_KEY') is None: print("WANDB_API_KEY is not set")
 wandb_kwargs = {'project': 'api-adapter-ifbench-gepa', 'entity': 'ronny21'}
-os.environ['WANDB_RUN_NAME'] = 'gepa-optimize-v2-system-prompt'
+os.environ['WANDB_RUN_NAME'] = 'gepa-optimize-v3-system-prompt'
 
 
 from pathlib import Path
 CHECKPOINT_DIR = Path(f'outputs/ifbench/gepa_optimize_adapter_system_prompt/{os.environ["WANDB_RUN_NAME"]}')
 CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+TOTAL_COST = 0.0
+logger.info(f"Total cost uptill now: {TOTAL_COST}")
 result = gepa.optimize(
     seed_candidate=seed_prompt,
     trainset=trainset,
@@ -314,7 +333,7 @@ result = gepa.optimize(
     task_lm=task_lm_callable,
     max_metric_calls=50000,
     reflection_lm=reflection_lm_callable,
-    reflection_minibatch_size=5,
+    reflection_minibatch_size=15,
     reflection_prompt_template=reflection_prompt_template,
     evaluator=evaluate_callable,
     use_merge=True,
@@ -371,3 +390,4 @@ claude_reward = tmp['claude_reward']
 
 rewards, _ = reward_fn_with_feedback(prompts, completions, ground_truth, key, claude_reward)
 print(f"GEPA optimized reward: {sum(rewards) / len(rewards)}")
+print(f"Total claude-opus cost: {TOTAL_COST}")
