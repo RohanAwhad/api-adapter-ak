@@ -103,10 +103,16 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     model_name=DEFAULT_MODEL_NAME,
     max_seq_length=DEFAULT_MAX_SEQ_LENGTH,
     dtype=None,  # auto-detect (bf16 on H100)
-    load_in_4bit=False,  # (rohan): always False! 
-    fast_inference=True, 
+    load_in_4bit=False,  # (rohan): always False!
+    fast_inference=True,
     gpu_memory_utilization=0.3,
 )
+
+before = len(dataset)
+dataset = dataset.filter(
+    lambda x: len(tokenizer.apply_chat_template(x["prompt"], tokenize=True, add_generation_prompt=True, enable_thinking=False)) < DEFAULT_MAX_SEQ_LENGTH
+)
+print(f"Filtered dataset: {before} -> {len(dataset)} (removed {before - len(dataset)} prompts exceeding {DEFAULT_MAX_SEQ_LENGTH} tokens)")
 
 
 from api_adapter.ifbench.eval_utils import (
