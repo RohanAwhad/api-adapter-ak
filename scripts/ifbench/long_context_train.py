@@ -105,7 +105,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     dtype=None,  # auto-detect (bf16 on H100)
     load_in_4bit=False,  # (rohan): always False! 
     fast_inference=True, 
-    gpu_memory_utilization=0.5,
+    gpu_memory_utilization=0.3,
 )
 
 
@@ -169,12 +169,13 @@ max_steps = 3000
 # (rohan): I want 64 rollouts per prompt. I dont know what hyperparameters to set for this.
 # figure it out.
 
-per_device_train_batch_size = 16
-gradient_accumulation_steps = 4
+per_device_train_batch_size = 4
+gradient_accumulation_steps = 16
 learning_rate = 5e-6
 num_generations = 64
 
 config = GRPOConfig(
+    vllm_enable_sleep_mode=True,
     output_dir=str(output_dir),
     run_name=wandb_run_name,
     max_steps=max_steps,
