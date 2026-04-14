@@ -3,7 +3,6 @@ CUDA_VISIBLE_DEVICES=1 python scripts/ifbench/train.py 2>&1 | tee logs/ifbench/t
 
 
 # things to add:
-- check for prompt length before training, and discard long samples
 - multi-gpu training
 
 """
@@ -112,6 +111,12 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     load_in_4bit=LOAD_IN_4BIT,
     gpu_memory_utilization=GPU_MEMORY_UTILIZATION,
 )
+
+before = len(dataset)
+dataset = dataset.filter(
+    lambda x: len(tokenizer.apply_chat_template(x["prompt"], tokenize=True, add_generation_prompt=True, enable_thinking=False)) < MAX_SEQ_LENGTH
+)
+print(f"Filtered dataset: {before} -> {len(dataset)} (removed {before - len(dataset)} prompts exceeding {MAX_SEQ_LENGTH} tokens)")
 
 
 def reward_fn(prompts, completions, ground_truth, key, claude_reward, **kwargs):
