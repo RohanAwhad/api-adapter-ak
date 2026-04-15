@@ -1,5 +1,5 @@
 """
-CUDA_VISIBLE_DEVICES=1 python scripts/ifbench/train.py 2>&1 | tee logs/ifbench/train_script_tee.log
+CUDA_VISIBLE_DEVICES=1 python scripts/ifbench/train.py 2>&1 | tee logs/ifbench/train_script_test_run.log
 
 
 # things to add:
@@ -41,14 +41,17 @@ GPU_MEMORY_UTILIZATION = 0.5
 LORA_RANK = 32
 LORA_ALPHA = LORA_RANK * 2
 
-WANDB_RUN_NAME = "test-run-v3"
+WANDB_RUN_NAME = "test-run-entropy-logging"
 OUTPUT_DIR = Path(f"outputs/ifbench/{WANDB_RUN_NAME}")
 MAX_STEPS = 10000
+
 PER_DEVICE_TRAIN_BATCH_SIZE = 16
-PER_DEVICE_EVAL_BATCH_SIZE = 64
-GRADIENT_ACCUMULATION_STEPS = 1
+GRADIENT_ACCUMULATION_STEPS = 4
+NUM_GENERATIONS = 8
+EPSILON_HIGH = 0.28
+SCALE_REWARDS = False
+
 LEARNING_RATE = 5e-6
-NUM_GENERATIONS = 64
 WEIGHT_DECAY = 0.001
 WARMUP_RATIO = 0.1
 LR_SCHEDULER_TYPE = "linear"
@@ -108,7 +111,8 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     model_name=MODEL_NAME,
     max_seq_length=MAX_SEQ_LENGTH,
     dtype=None,
-    load_in_4bit=LOAD_IN_4BIT,
+    fast_inference=True,
+    load_in_4bit=False,
     gpu_memory_utilization=GPU_MEMORY_UTILIZATION,
 )
 
@@ -165,6 +169,7 @@ config = GRPOConfig(
     output_dir=str(OUTPUT_DIR),
     run_name=WANDB_RUN_NAME,
     max_steps=MAX_STEPS,
+    use_vllm=True,
     per_device_train_batch_size=PER_DEVICE_TRAIN_BATCH_SIZE,
     # per_device_eval_batch_size=PER_DEVICE_EVAL_BATCH_SIZE,
     gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
@@ -174,7 +179,9 @@ config = GRPOConfig(
     lr_scheduler_type=LR_SCHEDULER_TYPE,
     optim=OPTIM,
     num_generations=NUM_GENERATIONS,
-    generation_batch_size=NUM_GENERATIONS,
+    # generation_batch_size=NUM_GENERATIONS,
+    epsilon_high=EPSILON_HIGH,
+    scale_rewards=SCALE_REWARDS,
     max_completion_length=MAX_COMPLETION_LENGTH,
     temperature=TEMPERATURE,
     top_k=TOP_K,
