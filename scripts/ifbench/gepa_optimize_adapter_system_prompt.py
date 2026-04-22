@@ -10,6 +10,8 @@ dataset = dataset.shuffle(seed=42).select(range(150))
 dataset
 
 
+TOTAL_COST = 0.0
+
 # # baseline
 
 import os
@@ -260,7 +262,7 @@ def reflection_lm_callable(prompt: str | list[dict[str, str]]) -> str:
     cache_read_cost = usage.cache_read_input_tokens * CLAUDE_OPUS_PRICING["cache_read_cost"]
     total_cost = input_cost + output_cost + cache_write_cost + cache_read_cost
     TOTAL_COST += total_cost
-    logger.info(f"Total cost uptill now: {TOTAL_COST}")
+    logger.info(f"Total claude-opus cost uptill now: {TOTAL_COST}")
     return response.content[-1].text
 
 print('Reflection LM callable:', reflection_lm_callable("What is the capital of France?"))
@@ -324,8 +326,7 @@ os.environ['WANDB_RUN_NAME'] = 'gepa-optimize-v3-system-prompt'
 from pathlib import Path
 CHECKPOINT_DIR = Path(f'outputs/ifbench/gepa_optimize_adapter_system_prompt/{os.environ["WANDB_RUN_NAME"]}')
 CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
-TOTAL_COST = 0.0
-logger.info(f"Total cost uptill now: {TOTAL_COST}")
+logger.info(f"Total claude-opus cost uptill now: {TOTAL_COST}")
 result = gepa.optimize(
     seed_candidate=seed_prompt,
     trainset=trainset,
@@ -390,4 +391,4 @@ claude_reward = tmp['claude_reward']
 
 rewards, _ = reward_fn_with_feedback(prompts, completions, ground_truth, key, claude_reward)
 print(f"GEPA optimized reward: {sum(rewards) / len(rewards)}")
-print(f"Total claude-opus cost: {TOTAL_COST}")
+print(f"Total claude-opus cost after evaluation: {TOTAL_COST}")
