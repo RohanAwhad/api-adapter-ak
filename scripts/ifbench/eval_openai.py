@@ -2,20 +2,23 @@
 Evaluate IFBench using an OpenAI-compatible API as the adapter model.
 
 Env vars:
-  OPENAI_BASE_URL    – base URL of the OpenAI-compatible server
-  OPENAI_API_KEY     – API key (use 'dummy' for local vLLM)
-  MODEL_NAME         – model name served by the API
-  TOKENIZER_NAME     – HuggingFace tokenizer name (for token counting / chat template)
-  CLAUDE_RESPONSE_PATH – path to claude response jsonl (default: data/ifbench/api.jsonl)
-  MAX_SEQ_LENGTH     – max sequence length for filtering (default: 4096)
-  CONCURRENCY        – number of concurrent requests (default: 40)
+  OPENAI_BASE_URL    - base URL of the OpenAI-compatible server
+  OPENAI_API_KEY     - API key (use 'dummy' for local vLLM)
+  MODEL_NAME         - model name served by the API
+  TOKENIZER_NAME     - HuggingFace tokenizer name (for token counting / chat template)
+  CLAUDE_RESPONSE_PATH - path to claude response jsonl (default: data/ifbench/api.jsonl)
+  MAX_SEQ_LENGTH      - max sequence length for filtering (default: 4096)
+  CONCURRENCY         - number of concurrent requests (default: 40)
 
 Example:
-  OPENAI_BASE_URL=http://10.241.128.25:8000/v1 \
-  OPENAI_API_KEY=dummy \
-  MODEL_NAME=qwen3-4b-step1100 \
-  TOKENIZER_NAME=Qwen/Qwen3-4B \
-  python scripts/ifbench/eval_openai.py
+OPENAI_BASE_URL=http://localhost:8000/v1 \
+OPENAI_API_KEY=dummy \
+MODEL_NAME=qwen3-4b \
+TOKENIZER_NAME=Qwen/Qwen3-4B \
+MAX_SEQ_LENGTH=16384 \
+CONCURRENCY=20 \
+THINKING=1 \
+python scripts/ifbench/eval_openai.py
 """
 
 import asyncio
@@ -23,7 +26,6 @@ import json
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -101,7 +103,7 @@ ADAPTER_RESPONSE_PATTERN = re.compile(
 )
 
 
-def build_adapter_prompt(user_prompt: str, draft_response: str) -> list[dict]:
+def build_adapter_prompt(user_prompt: str, draft_response: str, is_thinking: int) -> list[dict]:
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
         {
@@ -109,7 +111,7 @@ def build_adapter_prompt(user_prompt: str, draft_response: str) -> list[dict]:
             "content": (
                 f"User Prompt: {user_prompt}\n"
                 f"<draft_response>{draft_response}</draft_response>"
-                "/no_think"
+                f"/{'think' if is_thinking else 'no_think'}"
             ),
         },
     ]
@@ -134,6 +136,7 @@ async def main():
     )
     max_seq_length = int(os.environ.get("MAX_SEQ_LENGTH", "4096"))
     concurrency = int(os.environ.get("CONCURRENCY", "40"))
+    is_thinking = int(os.environ.get("THINKING", "0"))
 
     print(f"model_name: {model_name}")
     print(f"tokenizer_name: {tokenizer_name}")
@@ -141,7 +144,7 @@ async def main():
     print(f"claude_response_path: {claude_response_path}")
     print(f"max_seq_length: {max_seq_length}")
     print(f"concurrency: {concurrency}")
-
+    print(f"is_thinking: {is_thinking}")
     # --- load data ---
     dataset = load_dataset("allenai/IFBench_test", split="train")
     claude_responses = load_claude_responses(claude_response_path)
@@ -154,7 +157,7 @@ async def main():
     # --- build adapter prompts ---
     dataset = dataset.map(
         lambda x: {
-            "adapter_prompt": build_adapter_prompt(x["prompt"], x["claude_response"])
+            "adapter_prompt": build_adapter_prompt(x["prompt"], x["claude_response"], is_thinking=is_thinking)
         }
     )
 
