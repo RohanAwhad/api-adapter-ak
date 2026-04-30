@@ -24,5 +24,18 @@
 - JSONL data saved with all columns (groups, group_rewards, group_pass_at_n, advantages)
 
 ### 500-sample run
-- Kicked off full run, estimated ~5-6 hours based on 10-sample timing
-- Pending: collect results, commit, and raise PR
+- Completed in ~3.5 hours (14:28 - 18:00) with semaphore=40
+- 32,000 total rollouts (500 samples x 64 rollouts each)
+
+**Pass@N results:**
+| Metric | Value |
+|--------|-------|
+| pass@1 | 0.344 |
+| pass@2 | 0.364 |
+| pass@8 | 0.428 |
+| pass@16 | 0.452 |
+| pass@32 | 0.478 |
+| pass@64 | 0.506 |
+
+- Advantage distribution: bell-shaped, centered near 0, tails to -1.0 and +1.0
+- Good learning signal for RL — ~50% of samples have at least one correct rollout at pass@64

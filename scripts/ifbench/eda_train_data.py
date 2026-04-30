@@ -166,7 +166,7 @@ def load_and_prepare_data(num_samples: int) -> Dataset:
 
 async def generate_rollouts(subset: Dataset) -> list[list[str]]:
     client = AsyncOpenAI(base_url="http://localhost:8000/v1", api_key="")
-    semaphore = asyncio.Semaphore(20)
+    semaphore = asyncio.Semaphore(40)
 
     async def generate_rollout(prompt: str, pbar=None) -> str:
         try:
