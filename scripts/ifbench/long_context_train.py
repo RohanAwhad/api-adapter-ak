@@ -1,5 +1,5 @@
 """
-CUDA_VISIBLE_DEVICES=0 python scripts/ifbench/long_context_train.py 2>&1 | tee logs/ifbench/long_context_train.log
+CUDA_VISIBLE_DEVICES=1 python scripts/ifbench/long_context_train.py 2>&1 | tee logs/ifbench/long_context_train.log
 """
 from datasets import Dataset
 
@@ -105,7 +105,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
     dtype=None,  # auto-detect (bf16 on H100)
     load_in_4bit=False,  # (rohan): always False!
     fast_inference=True,
-    gpu_memory_utilization=0.3,
+    gpu_memory_utilization=0.5,
 )
 
 before = len(dataset)
@@ -176,9 +176,9 @@ max_steps = 3000
 # figure it out.
 
 per_device_train_batch_size = 4
-gradient_accumulation_steps = 16
+gradient_accumulation_steps = 128
 learning_rate = 5e-6
-num_generations = 64
+num_generations = 32
 
 config = GRPOConfig(
     vllm_enable_sleep_mode=True,
@@ -188,6 +188,9 @@ config = GRPOConfig(
     use_vllm=True,
     per_device_train_batch_size=per_device_train_batch_size,
     gradient_accumulation_steps=gradient_accumulation_steps,
+    epsilon_high=0.28,
+    scale_rewards=False,
+    loss_type="dapo",
     learning_rate=learning_rate,
     weight_decay=0.001,
     warmup_ratio=0.1,

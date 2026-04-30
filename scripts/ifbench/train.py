@@ -1,5 +1,5 @@
 """
-CUDA_VISIBLE_DEVICES=1 python scripts/ifbench/train.py 2>&1 | tee logs/ifbench/train_script_test_run.log
+CUDA_VISIBLE_DEVICES=4 python scripts/ifbench/train.py 2>&1 | tee logs/ifbench/train_script_test_run.log
 
 
 # things to add:
@@ -46,8 +46,8 @@ OUTPUT_DIR = Path(f"outputs/ifbench/{WANDB_RUN_NAME}")
 MAX_STEPS = 10000
 
 PER_DEVICE_TRAIN_BATCH_SIZE = 16
-GRADIENT_ACCUMULATION_STEPS = 32
-NUM_GENERATIONS = 64
+GRADIENT_ACCUMULATION_STEPS = 4
+NUM_GENERATIONS = 8
 EPSILON_HIGH = 0.28
 SCALE_REWARDS = False
 
@@ -89,6 +89,7 @@ logger.remove()
 file_handler = logger.add(LOG_FILE)
 
 torch._dynamo.config.cache_size_limit = DYNAMO_CACHE_SIZE_LIMIT
+torch._dynamo.config.recompile_limit = DYNAMO_CACHE_SIZE_LIMIT
 
 dotenv.load_dotenv(override=True)
 
@@ -117,10 +118,11 @@ model, tokenizer = FastLanguageModel.from_pretrained(
 )
 
 before = len(dataset)
+max_prompt_length = MAX_SEQ_LENGTH - MAX_COMPLETION_LENGTH
 dataset = dataset.filter(
-    lambda x: len(tokenizer.apply_chat_template(x["prompt"], tokenize=True, add_generation_prompt=True, enable_thinking=False)) < MAX_SEQ_LENGTH
+    lambda x: len(tokenizer.apply_chat_template(x["prompt"], tokenize=True, add_generation_prompt=True, enable_thinking=False)) < max_prompt_length
 )
-print(f"Filtered dataset: {before} -> {len(dataset)} (removed {before - len(dataset)} prompts exceeding {MAX_SEQ_LENGTH} tokens)")
+print(f"Filtered dataset: {before} -> {len(dataset)} (removed {before - len(dataset)} prompts exceeding {max_prompt_length} prompt tokens)")
 
 
 def reward_fn(prompts, completions, ground_truth, key, claude_reward, **kwargs):
