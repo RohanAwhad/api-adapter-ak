@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "api-adapter"
 version = "0.1.0"
 description = "Chain a local LoRA-adapted model to a proprietary API model to adapt its outputs"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.10,<3.13"
 dependencies = [
     "anthropic[vertex]>=0.40.0",
     "datasets>=2.16.0",
@@ -28,6 +28,7 @@ dependencies = [
     "gepa>=0.1.1",
     "wandb",
     "python-dotenv",
+    "verifiers>=0.1.12",
 ]
 
 [project.optional-dependencies]
